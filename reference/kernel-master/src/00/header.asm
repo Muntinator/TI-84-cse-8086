@@ -1,0 +1,49 @@
+; 0x0000
+; RST 0x00
+    jp boot
+; Magic Number
+; 0x0003
+.db "KK"
+
+; 0x0008
+; RST 0x08
+.fill 0x08-$
+rkcall:
+    jp kcall
+.fill 0x10-$
+; 0x0010
+; RST 0x10
+rlcall:
+    jp lcall
+.fill 0x18-$
+; 0x0018
+; RST 0x18
+    jp reboot
+.fill 0x20-$
+; 0x0020
+; RST 0x20
+    jp pcall
+.fill 0x28-$
+; 0x0028
+; RST 0x28
+    jp bcall
+.fill 0x30-$    
+; 0x0030
+; RST 0x30
+    ret ; unused
+.fill 0x38-$
+; 0x0038
+; RST 0x38
+; SYSTEM INTERRUPT
+    jp sysInterrupt
+; 0x003B
+
+.fill 0x53-$
+; 0x0053
+    jp boot
+; 0x0056
+.db 0xFF, 0xA5, 0xFF
+.fill 0x64-$
+.exec ./get_version.sh ; get version string using script
+.db 0
+

@@ -1,0 +1,17 @@
+# Build products
+build/
+*.o
+*.bin
+
+# Firmware build output
+firmware/**/*.8xk
+firmware/**/*.8cu
+
+# User-supplied disk images (never committed)
+*.img
+*.iso
+*.vhd
+
+# Editor noise
+*.swp
+.DS_Store

@@ -1,0 +1,171 @@
+; Kernel Include File
+
+; Macros
+rkcall .equ 0x08
+rlcall .equ 0x10
+rpcall .equ 0x20
+
+.macro kcall(addr)
+    rst rkcall
+    call addr
+.endmacro
+.macro kcall(cc, addr)
+    rst rkcall
+    call cc, addr
+.endmacro
+.macro kjp(addr)
+    rst rkcall
+    jp addr
+.endmacro
+.macro kjp(cc, addr)
+    rst rkcall
+    jp cc, addr
+.endmacro
+.macro kld(to, from)
+    rst rkcall
+    ld to, from
+.endmacro
+
+.macro lcall(id, addr)
+    rst rlcall
+    .db id
+    call addr
+.endmacro
+.macro lcall(id, cc, addr)
+    rst rlcall
+    .db id
+    call cc, addr
+.endmacro
+.macro ljp(id, addr)
+    rst rlcall
+    .db id
+    jp addr
+.endmacro
+.macro ljp(id, cc, addr)
+    rst rlcall
+    .db id
+    jp cc, addr
+.endmacro
+.macro lld(id, to, from)
+    rst rlcall
+    .db id
+    ld to, from
+.endmacro
+
+.macro icall(addr)
+    rst rlcall
+    .db libId
+    call addr
+.endmacro
+.macro icall(cc, addr)
+    rst rlcall
+    .db libId
+    call cc, addr
+.endmacro
+.macro ijp(addr)
+    rst rlcall
+    .db libId
+    jp addr
+.endmacro
+.macro ijp(cc, addr)
+    rst rlcall
+    .db libId
+    jp cc, addr
+.endmacro
+.macro ild(to, from)
+    rst rlcall
+    .db libId
+    ld to, from
+.endmacro
+
+.macro pcall(function)
+    .if function & 0xFF
+        rst rpcall
+        .dw function
+    .else
+        call 0x4000 - (((function >> 8) + 1) * 3)
+    .endif
+.endmacro
+.macro pcall(flags, function)
+    .if function & 0xFF
+        jr flags, $+4
+        jr $+5
+        rst rpcall
+        .dw function
+    .else
+        call flags, 0x4000 - (((function >> 8) + 1) * 3)
+    .endif
+.endmacro
+; /Macros
+
+; Keypad codes
+kDown               .equ 0x01
+kLeft               .equ 0x02
+kRight              .equ 0x03
+kUp                 .equ 0x04
+kEnter              .equ 0x09 \kEntry .equ 0x09 \kSolve .equ 0x09
+kPlus               .equ 0x0A \kMem .equ 0x0A \kQuote .equ 0x0A
+kMinus              .equ 0x0B \kLSqBracket .equ 0x0B \kW .equ 0x0B
+kMul                .equ 0x0C \kRSqBracket .equ 0x0C \kR .equ 0x0C
+kDiv                .equ 0x0D \kVarE .equ 0x0D \kM .equ 0x0D
+kPower              .equ 0x0E \kPi .equ 0x0E \kH .equ 0x0E
+kClear              .equ 0x0F
+kChs                .equ 0x11 \kNeg .equ 0x11 \kAns .equ 0x11 \kQuestion .equ 0x11
+k3                  .equ 0x12 \kTheta .equ 0x12 \kL3 .equ 0x12
+k6                  .equ 0x13 \kL6 .equ 0x13 \kV .equ 0x13
+k9                  .equ 0x14 \kVarW .equ 0x14 \kQ .equ 0x14
+kRParen             .equ 0x15 \kRBrace .equ 0x15 \kL .equ 0x15
+kTan                .equ 0x16 \kInvTan .equ 0x16 \kG .equ 0x16
+kVars               .equ 0x17 \kDistr .equ 0x17
+kDecPnt             .equ 0x19 \kDot .equ 0x19 \kPeriod .equ 0x19 \kVarI .equ 0x19 \kImaginary .equ 0x19 \kColon .equ 0x19
+k2                  .equ 0x1A \kL2 .equ 0x1A \kZ .equ 0x1A
+k5                  .equ 0x1B \kL5 .equ 0x1B \kU .equ 0x1B
+k8                  .equ 0x1C \kVarV .equ 0x1C \kP .equ 0x1C
+kLParen             .equ 0x1D \kLBrace .equ 0x1D \kK .equ 0x1D
+kCos                .equ 0x1E \kInvCos .equ 0x1E \kF .equ 0x1E
+kPrgm               .equ 0x1F \kDraw .equ 0x1F \kC .equ 0x1F
+kStat               .equ 0x20 \kList .equ 0x20
+k0                  .equ 0x21 \kCatalog .equ 0x21 \kSpace .equ 0x21
+k1                  .equ 0x22 \kL1 .equ 0x22 \kY .equ 0x22
+k4                  .equ 0x23 \kL4 .equ 0x23 \kT .equ 0x23
+k7                  .equ 0x24 \kVarU .equ 0x24 \kO .equ 0x24
+kComma              .equ 0x25 \kEE .equ 0x25 \kJ .equ 0x25
+kSin                .equ 0x26 \kInvSin .equ 0x26 \kE .equ 0x26
+kApps	            .equ 0x27 \kAngle .equ 0x27 \kB .equ 0x27
+kGraphvar           .equ 0x28 \kXTThetaN .equ 0x28 \kLink .equ 0x28
+kStore              .equ 0x2A \kRcl .equ 0x2A \kX .equ 0x2A
+kLn                 .equ 0x2B \kEx .equ 0x2B \kS .equ 0x2B
+kLog                .equ 0x2C \k10x .equ 0x2C \kN .equ 0x2C
+kSquare             .equ 0x2D \kXSqu .equ 0x2D \kSqRoot .equ 0x2D \kI .equ 0x2D
+kRecip              .equ 0x2E \kXNeg .equ 0x2E \kMatrix .equ 0x2E \kD .equ 0x2E
+kMath               .equ 0x2F \kA .equ 0x2F \kTest .equ 0x2F
+kAlpha              .equ 0x30 \kALock .equ 0x30
+kGraph              .equ 0x31 \kTable .equ 0x31 \kF5 .equ 0x31
+kTrace              .equ 0x32 \kCalc .equ 0x32 \kF4 .equ 0x32
+kZoom               .equ 0x33 \kFormat .equ 0x33 \kF3 .equ 0x33
+kWindow             .equ 0x34 \kTblSet .equ 0x34 \kTableSet .equ 0x34 \kF2 .equ 0x34
+kYEqu               .equ 0x35 \kStatPlot .equ 0x35 \kF1 .equ 0x35
+k2nd                .equ 0x36
+kMode               .equ 0x37 \kQuite .equ 0x37
+kDel                .equ 0x38 \kIns .equ 0x38 \kDelete .equ 0x38
+
+; Mathematical constants
+
+FP_ZERO         .equ 0
+FP_ONE          .equ 1
+FP_PI           .equ 2
+FP_PI_OVER_2    .equ 3
+FP_PI_OVER_4    .equ 4
+FP_PI_OVER_180  .equ 5
+FP_180_OVER_PI  .equ 6
+FP_E            .equ 7
+FP_LOG_E        .equ 8
+FP_LN_10        .equ 9
+
+; Set to use , as the decimal point and . for digit grouping
+FP_STR_INV_PUNC     .equ 1<<7
+FP_GROUP_DIGITS     .equ 1<<6
+FP_DISP_NORMAL      .equ 0
+FP_DISP_SCIENTIFIC  .equ 1<<4
+
+; The rest of this file was generated by a tool.
