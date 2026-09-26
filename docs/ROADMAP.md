@@ -23,7 +23,7 @@ pass. Nothing is marked complete because code exists.
 | 13 | Windows for Workgroups 3.11 → Program Manager | **NOT STARTED** |
 | 14 | Virtual mouse | **NOT STARTED** |
 | 15 | Virtual NIC (NE2000) | **NOT STARTED** |
-| 16 | CSE backend + ESP32-C3 bridge | **PARTIAL** — Z80 firmware bring-up source provided; guest execution on hardware not yet possible (see limitation below) |
+| 16 | CSE backend + ESP32-C3 bridge | **PARTIAL** — Z80 firmware bring-up asm + full C platform backend written; the whole backend now **runs and passes its suite on the host simulator** (116 checks + firmware boot simulation to `GUEST HALTED`); SDCC device build ready (`make cse`, needs SDCC installed); guest execution on real hardware not yet possible (see limitation below) |
 
 ## Spec "success levels" mapping
 
@@ -69,6 +69,21 @@ measurements.
 
 ## Changelog
 
+- **Platform-port working session:** platform seam completed and verified —
+  `include/platform.h` is the only host/CSE boundary; portable core untouched
+  (host suite still 200/0).  CSE backend completed: paged guest memory with
+  pinned BIOS/boot pages, RAM virtual disk, keypad→set-1 scancode translation,
+  LCD backend with diagnostic text, firmware startup with per-subsystem
+  self-tests and recovery check.  Fixed build blockers (broken block comments
+  terminating early, missing `cse_video_print`, missing sim `main()`), removed
+  SDCC-only `snprintf` from the CPU fault path (host output byte-identical),
+  corrected `machine_reset`/fault-msg guards for the paged backend, and fixed
+  three test defects (sink-clearing `cse_keys_set_emit`, ASCII-table expectation,
+  white-vs-light-gray framebuffer check).  New `make cse-sim`: the backend plus
+  portable core run the real firmware startup on the host — 116 checks, 0
+  failures, boot simulation reaches the `GUEST HALTED` park.  `make cse` degrades
+  to a documented SKIP without SDCC.  Docs re-baselined (`BASELINE.md`,
+  `TESTING.md`).
 - **Initial bring-up:** host x86 core (real mode), memory subsystem, chipset,
   BIOS, DOS shim, VGA + CSE downscaler, disk device, host CLI, 200-test suite,
   Phase 0 documentation, Z80 firmware bring-up source.

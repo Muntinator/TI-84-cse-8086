@@ -11,7 +11,7 @@ by any code path.
 
 | Resource | Value | Source |
 | --- | --- | --- |
-| CPU | Z80-compatible, 6 MHz or 15 MHz (port `0x20`, bit 1) | `constants.asm CPUSPEED_15MHZ` (mask 1) |
+| CPU | Z80-compatible, 6 MHz or 15 MHz (port `0x20` = speed INDEX: 0 = 6 MHz, 1 = 15 MHz — highest stable; see `docs/CSE_HARDWARE.md`) | `constants.asm CPUSPEED_15MHZ` (mask 1), WikiTI "83Plus:Ports:20" |
 | Flash | 4 MiB (`0x400000`), paged in 16 KiB pages → **256 pages** | KnightOS `Makefile` `LENGTH := 0x400000`, `FLASH4MB` |
 | SRAM | Banked through the `0x8000`–`0xFFFF` window; KnightOS maps page 1 at `0x8000` and page 0 at `0xC000` | `boot.asm` |
 | Total SRAM | **≥ 32 KiB; exact size VERIFY on hardware** (self-test counts usable pages) | `docs/MEMORY_MAP.md`, bring-up prints it |
@@ -56,7 +56,7 @@ The privileged/boot page addresses are taken from the KnightOS Makefile
 | `0x07`, `0x0F` | Bank B flash/RAM page low/high | `boot.asm` |
 | `0x10`, `0x11` | LCD index (written twice) / 16-bit data (H then L) | `display-color.asm writeLcdRegister` |
 | `0x14` | Flash write unlock (`FLASHRWCONTROL_ENABLEWRITE` bit 0) — used only by explicit storage code | `constants.asm` |
-| `0x20` | CPU speed select (bit 1 = 15 MHz) | `constants.asm` |
+| `0x20` | CPU speed select (speed index: `0` = 6 MHz, `1` = 15 MHz; firmware writes `1` — the highest stable speed) | `constants.asm`, WikiTI "83Plus:Ports:20" |
 | `0x21` | Flash/RAM size configuration | `docs/CSE_HARDWARE.md` |
 | `0x22/0x23`, `0x25/0x26` | Flash/RAM execute limits | `docs/CSE_HARDWARE.md` |
 | `0x30–0x38` | Crystal timers 1–3: freq, loop, counter | `boot.asm` |

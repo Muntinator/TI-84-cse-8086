@@ -111,9 +111,19 @@ void machine_free(pc_t *pc)
     if (pc->mem) { mem_backing_free(pc->mem, X86_MEM_SIZE); pc->mem = NULL; }
 }
 
+#if defined(MUNT386_CSE) || defined(MUNT386_CSE_SIM)
+/* Paged guest-memory backend (firmware/cse/cse_mem.c): machine_reset uses it
+ * instead of memset() over the flat 1 MiB array. */
+void mem_clear_all(pc_t *pc);
+#endif
+
 void machine_reset(pc_t *pc)
 {
+#if defined(MUNT386_CSE) || defined(MUNT386_CSE_SIM)
+    mem_clear_all(pc);          /* paged backend clears guest pages */
+#else
     memset(pc->mem, 0, X86_MEM_SIZE);
+#endif
 
     cpu_reset(&pc->cpu);
     machine_install_ivt(pc);

@@ -150,7 +150,7 @@ guest cadence → `machine_timer_tick()` → virtual PIC → guest IRQ0.
 | Host build (`make`, `make test`, `make emulator`, `make tools`) | `Makefile` | PORT DIRECTLY | Unchanged targets, still green |
 | Platform-layer object split | `Makefile` | ADAPT | `platform_host.c` joins host builds; `main.c` excluded from `lib` |
 | CSE build (`make cse`) | `Makefile` + `firmware/cse/*.c` | REWRITE | SDCC `mcs51-large --no-xram`, output `build/cse/munt386-cse.bin`; separate object tree, never mixed with host objects |
-| CSE simulator (`make cse-sim`) | `Makefile` | ADAPT | Runs `cse_startup` on the host with stub ports — tests the CSE logic without hardware |
+| CSE simulator (`make cse-sim`) | `Makefile`, `tests/cse/cse_sim_main.c` | ADAPT | Links `firmware/cse/*.c` (emulated ports) + `CSE_CORE` with the **paged** memory backend and runs `cse_startup` end-to-end on the host; verified: 116 checks + firmware boot simulation reaching `GUEST HALTED` |
 | Z80 bring-up asm (`sh firmware/build.sh`) | `firmware/munt386.asm` | PORT DIRECTLY | Untouched; requires SPASM-ng/brass/sass |
 | Z80 assembler availability | — | NOT REQUIRED (for CI) | `make cse` degrades to a clear SKIP message when SDCC is absent; documented in `docs/OVERNIGHT_REPORT.md` |
 | SDCC | — | ADAPT | `tools/` dir has an apt hint; the port verifies presence and fails loudly rather than silently |
@@ -158,7 +158,8 @@ guest cadence → `machine_timer_tick()` → virtual PIC → guest IRQ0.
 ## Summary counts
 
 * PORT DIRECTLY: 30 items — the entire x86 core, memory interface, chipset,
-  BIOS, DOS shim, VGA device, disk device, tests.
+  BIOS, DOS shim, VGA device, disk device, tests (host suite still 200/0 after
+  the port; CSE backend adds its own 116-check simulator suite).
 * ADAPT: 11 items — fault strings, backing-store split, row converter,
   pacing counter, main(), Makefile, simulator, SDCC integration.
 * REWRITE: 13 items — all confined to the platform layer (CSE memory

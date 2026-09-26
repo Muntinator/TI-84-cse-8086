@@ -6,19 +6,34 @@ mandated diagnostic screen.
 
 ## Honest status
 
-- **Written but not yet assembled or run on hardware from this repository.**
-  No Z80 assembler is bundled here, so `build.sh` will tell you which one to
-  provide. Every hardware detail that could not be verified from documentation is
-  marked `;; VERIFY:` in `munt386.asm`.
+- **Two firmware code paths exist.**
+  1. `cse/` — the C platform backend, now **verified on the host simulator**:
+     `make cse-sim` compiles it with emulated hardware plus the portable core
+     and runs the real startup (self-tests → guest boot) — 116 checks, 0
+     failures, park `GUEST HALTED`.  The bare-metal SDCC build is prepared
+     (`make cse`; installs cleanly with `apt install sdcc` where permitted).
+  2. `munt386.asm` — the Z80 bring-up assembly.  Not yet assembled here (no
+     Z80 assembler bundled); `build.sh` tells you which one to provide.  Every
+     hardware detail that could not be verified from documentation is marked
+     `;; VERIFY:`.
+- Nothing has run on real calculator hardware from this repository yet.  The
+  on-device VERIFY items (measured SRAM, LCD axis mapping, ON-key matrix bit,
+  real timer period) are listed in `../docs/CSE_MEMORY_MAP.md` §7.
 - The **host emulator** (`../src`, `make test`) is fully working and is where
-  compatibility work happens. The firmware is the hardware bring-up path.
+  compatibility work happens.  The simulator (`make cse-sim`) is the middle
+  rung: firmware logic, no hardware.
 
 ## What `munt386.asm` does
 
 1. `di` + `im 1`, memory-timer/speed configuration, flash high-bank clear.
 2. Bank layout: `0x0000` flash p0, `0x4000` flash p1, `0x8000` RAM p1,
    `0xC000` RAM p0 (via port `0x07`, bit 7 = RAM).
-3. Stack in the RAM window, CPU raised to 15 MHz, ON-key interrupt enabled.
+3. Stack in the RAM window, CPU raised to 15 MHz — the highest stable
+   software-selectable speed (port `0x20` takes the speed INDEX: `1` =
+   15 MHz; register values 2/3 are unimplemented 20/25 MHz selections that
+   measure ~15 MHz and must not be used) — ON-key interrupt enabled.
+4. The C startup re-reads port `0x20` (`test_cpu_speed`) and halts with
+   `CPU: SPEED FAIL` if the 15 MHz selection did not latch.
 4. Colour LCD power-on sequence + backlight (documented CSE sequence).
 5. RAM self-test that measures usable 512-byte blocks.
 6. Flash self-test — **read only** (checksum of the mapped page).
@@ -44,10 +59,13 @@ file).
 
 ## Missing before the guest can run on hardware
 
-- A verified LCD axis mapping (`;; VERIFY:` items).
-- The page cache that maps the guest 1 MiB address space onto the CSE RAM
-  window + paged flash (see `../docs/MEMORY_MAP.md`).
-- A Z80 or translated implementation of the x86 core, plus the platform glue
-  that connects `vga_to_cse_lcd()` to the panel.
+- SDCC (for `make cse`) and an external Z80 assembler (for `build.sh`) — both
+  degrade to clear SKIP messages when absent.
+- On-device VERIFY items: measured SRAM budget, LCD axis mapping, ON-key
+  matrix bit, real crystal-timer period (`;; VERIFY:` markers in the sources,
+  checklist in `../docs/CSE_MEMORY_MAP.md` §7).
+- Flash-backed page eviction (milestone 2) if a device configuration cannot
+  hold the full 1 MiB guest working set in SRAM; without it, a reduced cache
+  halts honestly instead of losing guest memory.
 
 These are tracked as Phase 16 in `../docs/ROADMAP.md`.

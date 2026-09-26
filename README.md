@@ -12,7 +12,9 @@ binaries actually execute.
 
 ```sh
 make            # build the host emulator + test runner
-make test       # run the automated test suite
+make test       # run the host test suite
+make cse-sim    # build + run the CSE backend simulator (no hardware needed)
+make cse        # build the bare-metal CSE image (needs SDCC)
 make emulator   # just build ./build/munt386
 ```
 
@@ -49,7 +51,11 @@ reference/      analysed archives (not built)
   keyboard, CMOS, CGA/VGA video modes, block-device disk, PC boot path.
 - BIOS (INT 10h/11h/12h/13h/16h/19h/1Ah) and a hosted DOS INT 21h shim.
 - A 320×240 RGB565 downscaler for the CSE LCD.
-- `200 checks, 0 failures` (see `docs/TESTING.md`).
+- A complete CSE platform backend (`firmware/cse/`): paged guest memory, RAM
+  virtual disk, keypad→PC-scancode translation, LCD backend, bare-metal startup
+  with self-tests — verified end-to-end on the host simulator (`make cse-sim`).
+- `200 checks, 0 failures` (host suite) and `116 checks, 0 failures` + firmware
+  boot simulation (CSE simulator) — see `docs/TESTING.md`.
 
 ## What is **not** implemented yet
 

@@ -20,6 +20,43 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Fault-message formatting.
+ * Host builds use snprintf; the Z80 firmware build (SDCC) has no printf
+ * family, so MUNT386_CSE gets a hand-rolled bounded formatter.  Both paths
+ * produce exactly "<prefix><2 hex digits> at <4 hex>:<4 hex>". */
+#ifdef MUNT386_CSE
+static void fm_put(char *dst, size_t cap, size_t *n, char ch)
+{
+    if (*n + 1 < cap) dst[(*n)++] = ch;
+}
+static void fm_hex(char *dst, size_t cap, size_t *n, unsigned v, int digits)
+{
+    static const char fm_hexd[] = "0123456789ABCDEF";
+    int i;
+    for (i = digits - 1; i >= 0; i--)
+        fm_put(dst, cap, n, fm_hexd[(v >> (i * 4)) & 0xF]);
+}
+static void fault_msg_fmt(char *dst, size_t cap, const char *prefix,
+                          uint8_t op, uint16_t cs, uint16_t eip)
+{
+    size_t n = 0;
+    if (!cap) return;
+    while (*prefix) fm_put(dst, cap, &n, *prefix++);
+    fm_hex(dst, cap, &n, op, 2);
+    fm_put(dst, cap, &n, ' ');
+    fm_put(dst, cap, &n, 'a');
+    fm_put(dst, cap, &n, 't');
+    fm_put(dst, cap, &n, ' ');
+    fm_hex(dst, cap, &n, cs, 4);
+    fm_put(dst, cap, &n, ':');
+    fm_hex(dst, cap, &n, eip, 4);
+    dst[n] = 0;
+}
+#else
+#define fault_msg_fmt(buf, cap, prefix, opv, csv, eipv) \
+    snprintf((buf), (cap), prefix "%02X at %04X:%04X", (opv), (csv), (eipv))
+#endif
+
 /* Convert a segment-register view to a linear address.
  * Real mode: (seg << 4) + off.  Protected mode: seg_cache.base + off with a
  * limit check that raises #GP/#SS when the offset exceeds the limit. */
@@ -577,23 +614,23 @@ static int cpu_step_0f(pc_t *pc)
 
     /* MOV r32, CRn / MOV CRn, r32 (encoded as r16 today) */
     case 0x20: {
-        uint8_t b = fetch8(pc);
-        int cr = (b >> 3) & 7;
-        int rr = b & 7;
-        uint32_t v = cr == 0 ? c->cr0 : (cr == 2 ? c->cr2 : (cr == 3 ? c->cr3 : 0));
-        cpu_set_r16(c, rr, (uint16_t)v);
+        uint8_t b_20 = fetch8(pc);
+        int cr_20 = (b_20 >> 3) & 7;
+        int rr_20 = b_20 & 7;
+        uint32_t v_20 = cr_20 == 0 ? c->cr0 : (cr_20 == 2 ? c->cr2 : (cr_20 == 3 ? c->cr3 : 0));
+        cpu_set_r16(c, rr_20, (uint16_t)v_20);
         break;
     }
     case 0x22: {
-        uint8_t b = fetch8(pc);
-        int cr = (b >> 3) & 7;
-        uint32_t v = cpu_get_r16(c, b & 7);
-        if (cr == 0) {
-            uint32_t old = c->cr0;
-            c->cr0 = v | CR0_ET;
-            if ((old ^ c->cr0) & CR0_PE) cpu_update_mode(pc);
-        } else if (cr == 2) c->cr2 = v;
-        else if (cr == 3) c->cr3 = v & 0xFFFFF000u;
+        uint8_t b_22 = fetch8(pc);
+        int cr_22 = (b_22 >> 3) & 7;
+        uint32_t v_22 = cpu_get_r16(c, b_22 & 7);
+        if (cr_22 == 0) {
+            uint32_t old_22 = c->cr0;
+            c->cr0 = v_22 | CR0_ET;
+            if ((old_22 ^ c->cr0) & CR0_PE) cpu_update_mode(pc);
+        } else if (cr_22 == 2) c->cr2 = v_22;
+        else if (cr_22 == 3) c->cr3 = v_22 & 0xFFFFF000u;
         break;
     }
 
@@ -602,40 +639,40 @@ static int cpu_step_0f(pc_t *pc)
         decode_rm(pc, &m);
         switch (m.reg) {
             case 0: { /* LGDT m16&16 */
-                uint32_t lin = c->sc[m.sreg].base + m.off;
-                uint16_t lim = mem_lread16(pc, lin);
-                uint32_t base = mem_lread16(pc, lin + 2) |
-                                ((uint32_t)mem_lread8(pc, lin + 4) << 16);
-                c->gdtr_limit = lim; c->gdtr_base = base;
+                uint32_t lin_g0 = c->sc[m.sreg].base + m.off;
+                uint16_t lim_g0 = mem_lread16(pc, lin_g0);
+                uint32_t base_g0 = mem_lread16(pc, lin_g0 + 2) |
+                                ((uint32_t)mem_lread8(pc, lin_g0 + 4) << 16);
+                c->gdtr_limit = lim_g0; c->gdtr_base = base_g0;
                 break;
             }
             case 1: { /* LIDT m16&16 */
-                uint32_t lin = c->sc[m.sreg].base + m.off;
-                uint16_t lim = mem_lread16(pc, lin);
-                uint32_t base = mem_lread16(pc, lin + 2) |
-                                ((uint32_t)mem_lread8(pc, lin + 4) << 16);
-                c->idtr_limit = lim; c->idtr_base = base;
+                uint32_t lin_g1 = c->sc[m.sreg].base + m.off;
+                uint16_t lim_g1 = mem_lread16(pc, lin_g1);
+                uint32_t base_g1 = mem_lread16(pc, lin_g1 + 2) |
+                                ((uint32_t)mem_lread8(pc, lin_g1 + 4) << 16);
+                c->idtr_limit = lim_g1; c->idtr_base = base_g1;
                 break;
             }
             case 2: { /* LGDT with 32-bit base form accepted too */
-                uint32_t lin = c->sc[m.sreg].base + m.off;
-                uint16_t lim = mem_lread16(pc, lin);
-                uint32_t base = mem_lread32(pc, lin + 2);
-                c->gdtr_limit = lim; c->gdtr_base = base;
+                uint32_t lin_g2 = c->sc[m.sreg].base + m.off;
+                uint16_t lim_g2 = mem_lread16(pc, lin_g2);
+                uint32_t base_g2 = mem_lread32(pc, lin_g2 + 2);
+                c->gdtr_limit = lim_g2; c->gdtr_base = base_g2;
                 break;
             }
             case 3: { /* LIDT 32-bit base form */
-                uint32_t lin = c->sc[m.sreg].base + m.off;
-                uint16_t lim = mem_lread16(pc, lin);
-                uint32_t base = mem_lread32(pc, lin + 2);
-                c->idtr_limit = lim; c->idtr_base = base;
+                uint32_t lin_g3 = c->sc[m.sreg].base + m.off;
+                uint16_t lim_g3 = mem_lread16(pc, lin_g3);
+                uint32_t base_g3 = mem_lread32(pc, lin_g3 + 2);
+                c->idtr_limit = lim_g3; c->idtr_base = base_g3;
                 break;
             }
             case 6: { /* LMSW: load MSW (low 16 bits of CR0) */
-                uint16_t v = rm_get16(pc, &m);
-                uint32_t old = c->cr0;
-                c->cr0 = (c->cr0 & 0xFFFF0000u) | v | CR0_ET;
-                if ((old ^ c->cr0) & CR0_PE) cpu_update_mode(pc);
+                uint16_t v_g6 = rm_get16(pc, &m);
+                uint32_t old_g6 = c->cr0;
+                c->cr0 = (c->cr0 & 0xFFFF0000u) | v_g6 | CR0_ET;
+                if ((old_g6 ^ c->cr0) & CR0_PE) cpu_update_mode(pc);
                 break;
             }
             default:
@@ -647,12 +684,12 @@ static int cpu_step_0f(pc_t *pc)
     /* IMUL r16, r/m16 */
     case 0xAF: {
         decode_rm(pc, &m);
-        int32_t a = (int16_t)cpu_get_r16(c, m.reg);
-        int32_t b = (int16_t)rm_get16(pc, &m);
-        int32_t p = a * b;
+        int32_t a_af = (int16_t)cpu_get_r16(c, m.reg);
+        int32_t b_af = (int16_t)rm_get16(pc, &m);
+        int32_t p_af = a_af * b_af;
         SET_AX(c, 0);
-        cpu_set_r16(c, m.reg, (uint16_t)p);
-        if (p != (int32_t)(int16_t)p) c->eflags |= (FLAG_CF | FLAG_OF);
+        cpu_set_r16(c, m.reg, (uint16_t)p_af);
+        if (p_af != (int32_t)(int16_t)p_af) c->eflags |= (FLAG_CF | FLAG_OF);
         else c->eflags &= ~(FLAG_CF | FLAG_OF);
         break;
     }
@@ -683,19 +720,19 @@ static int cpu_step_0f(pc_t *pc)
 
     /* PUSH/POP FS, GS */
     case 0xA0: cpu_push16(pc, c->sreg[SREG_FS]); break;
-    case 0xA1: { uint16_t sel = cpu_pop16(pc); int e = seg_load(pc, SREG_FS, sel);
-                 if (e) cpu_raise_exception(pc, (uint8_t)e, sel); break; }
+    case 0xA1: { uint16_t sel_0a1 = cpu_pop16(pc); int e_0a1 = seg_load(pc, SREG_FS, sel_0a1);
+                 if (e_0a1) cpu_raise_exception(pc, (uint8_t)e_0a1, sel_0a1); break; }
     case 0xA8: cpu_push16(pc, c->sreg[SREG_GS]); break;
-    case 0xA9: { uint16_t sel = cpu_pop16(pc); int e = seg_load(pc, SREG_GS, sel);
-                 if (e) cpu_raise_exception(pc, (uint8_t)e, sel); break; }
+    case 0xA9: { uint16_t sel_0a9 = cpu_pop16(pc); int e_0a9 = seg_load(pc, SREG_GS, sel_0a9);
+                 if (e_0a9) cpu_raise_exception(pc, (uint8_t)e_0a9, sel_0a9); break; }
 
     ud:
     default:
         c->fault = 1;
         c->fault_eip = c->eip - 2;
-        snprintf(c->fault_msg, sizeof(c->fault_msg),
-                 "unimplemented opcode 0F %02X at %04X:%04X",
-                 op2, c->sreg[SREG_CS], (uint16_t)(c->eip - 2));
+        fault_msg_fmt(c->fault_msg, sizeof(c->fault_msg),
+                      "unimplemented opcode 0F ",
+                      op2, c->sreg[SREG_CS], (uint16_t)(c->eip - 2));
         return 1;
     }
     return 0;
@@ -1172,9 +1209,9 @@ int cpu_step(pc_t *pc)
     default:
         c->fault = 1;
         c->fault_eip = c->eip - 1;
-        snprintf(c->fault_msg, sizeof(c->fault_msg),
-                 "unimplemented opcode 0x%02X at %04X:%04X",
-                 op, c->sreg[SREG_CS], (uint16_t)(c->eip - 1));
+        fault_msg_fmt(c->fault_msg, sizeof(c->fault_msg),
+                      "unimplemented opcode 0x",
+                      op, c->sreg[SREG_CS], (uint16_t)(c->eip - 1));
         return 1;
     }
 
